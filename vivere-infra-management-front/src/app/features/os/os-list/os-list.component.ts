@@ -174,7 +174,7 @@ import { OperationalUnitService } from '../../../core/services/operational-unit.
 
   <!-- TIPO -->
   <select
-    [(ngModel)]="tipoItemSelecionado"
+    [(ngModel)]="tipoSelecionado"
     class="add-row__select">
 
     <option value="estrutura">
@@ -189,7 +189,7 @@ import { OperationalUnitService } from '../../../core/services/operational-unit.
 
   <!-- SELECT ESTRUTURAS -->
   <select
-    *ngIf="tipoItemSelecionado === 'estrutura'"
+    *ngIf="tipoSelecionado === 'estrutura'"
     [(ngModel)]="estruturaSelecionadaId"
     class="add-row__select">
 
@@ -209,7 +209,7 @@ import { OperationalUnitService } from '../../../core/services/operational-unit.
 
   <!-- SELECT MATERIAIS -->
   <select
-    *ngIf="tipoItemSelecionado === 'material'"
+    *ngIf="tipoSelecionado === 'material'"
     [(ngModel)]="materialSelecionadoId"
     class="add-row__select">
 
@@ -229,12 +229,14 @@ import { OperationalUnitService } from '../../../core/services/operational-unit.
 
   <!-- BOTÃO -->
   <button
-    class="btn-secondary"
-    (click)="adicionarItem()">
+  class="btn-secondary"
+  (click)="tipoSelecionado === 'material'
+    ? addMaterialAvulso()
+    : addEstrutura()">
 
-    Adicionar
+  Adicionar
 
-  </button>
+</button>
 
 </div>
 
@@ -359,7 +361,7 @@ export class OSListComponent implements OnInit {
   estruturasDoBanco = signal<any[]>([]);
   materiaisDoBanco = signal<any[]>([]);
   estruturaSelecionadaId = '';
-  tipoItemSelecionado = 'estrutura';
+  tipoSelecionado = 'estrutura';
   materialSelecionadoId = '';
   materiaisAvulsos = signal<any[]>([]);
   estruturasAdicionadas = signal<any[]>([]);
