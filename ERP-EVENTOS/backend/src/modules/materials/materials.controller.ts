@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, Param, Patch, Delete } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards,Request, Param, Patch, Delete } from '@nestjs/common';
 import { MaterialsService } from './materials.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -51,9 +51,10 @@ export class MaterialsController {
 
   @Get()
   @Roles(UserRole.PRODUCAO, UserRole.GALPAO, UserRole.ADMIN)
-  findAllMaterials() {
-    return this.materialsService.findAllMaterials();
-  }
+  findAllMaterials(@Request() req) {
+  console.log(req.user);
+  return this.materialsService.findAllMaterials();
+}
 
   @Get(':id')
   @Roles(UserRole.PRODUCAO, UserRole.GALPAO, UserRole.ADMIN)

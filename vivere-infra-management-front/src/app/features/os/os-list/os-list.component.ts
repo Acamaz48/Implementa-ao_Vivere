@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MaterialService } from '../../../core/services/material.service';
 import { ServiceOrderService, CreateOsPayload } from '../../../core/services/service-order.service';
+import { OperationalUnitService } from '../../../core/services/operational-unit.service';
 
 @Component({
   selector: 'app-os-list',
@@ -90,17 +91,46 @@ import { ServiceOrderService, CreateOsPayload } from '../../../core/services/ser
           </div>
 
           <div class="field-grid" style="margin-top: 15px;">
-            <div class="field">
-              <label>Data início (montagem)</label>
-              <input type="date" [(ngModel)]="osForm.dataInicio" />
-            </div>
-            <div class="field">
-              <label>Data fim (desmontagem)</label>
-              <input type="date" [(ngModel)]="osForm.dataFim" />
-            </div>
-          </div>
+  <div class="field">
+    <label>Data início (montagem)</label>
+    <input type="date" [(ngModel)]="osForm.dataInicio" />
+  </div>
 
-          <h4 style="margin: 25px 0 10px; font-size: 12px; color: #666; text-transform: uppercase;">Endereço de Entrega</h4>
+  <div class="field">
+    <label>Data fim (desmontagem)</label>
+    <input type="date" [(ngModel)]="osForm.dataFim" />
+  </div>
+</div>
+
+<div class="field-grid" style="margin-top: 15px;">
+
+  <div class="field">
+
+    <label>
+      Unidade Operacional / Galpão
+    </label>
+
+    <select [(ngModel)]="selectedOperationalUnitId">
+
+      <option value="">
+        Selecione a unidade
+      </option>
+
+      <option
+        *ngFor="let unit of operationalUnits()"
+        [value]="unit.id">
+
+        {{ unit.name }}
+
+      </option>
+
+    </select>
+
+  </div>
+
+</div>
+
+<h4 style="margin: 25px 0 10px; font-size: 12px; color: #666; text-transform: uppercase;">Endereço de Entrega</h4>
           <div class="field-grid" style="grid-template-columns: 2fr 1fr;">
             <div class="field">
               <label>Rua / Logradouro</label>
@@ -141,12 +171,72 @@ import { ServiceOrderService, CreateOsPayload } from '../../../core/services/ser
           </div>
 
           <div class="add-row">
-            <select [(ngModel)]="estruturaSelecionadaId" class="add-row__select">
-              <option value="">— Escolha uma estrutura do banco —</option>
-              <option *ngFor="let est of estruturasDoBanco()" [value]="est.id">{{ est.name }}</option>
-            </select>
-            <button class="btn-secondary" (click)="addEstrutura()" [disabled]="!estruturaSelecionadaId">Adicionar</button>
-          </div>
+
+  <!-- TIPO -->
+  <select
+    [(ngModel)]="tipoItemSelecionado"
+    class="add-row__select">
+
+    <option value="estrutura">
+      🏗️ Estrutura
+    </option>
+
+    <option value="material">
+      📦 Material Avulso
+    </option>
+
+  </select>
+
+  <!-- SELECT ESTRUTURAS -->
+  <select
+    *ngIf="tipoItemSelecionado === 'estrutura'"
+    [(ngModel)]="estruturaSelecionadaId"
+    class="add-row__select">
+
+    <option value="">
+      — Escolha uma estrutura —
+    </option>
+
+    <option
+      *ngFor="let est of estruturasDoBanco()"
+      [value]="est.id">
+
+      {{ est.name }}
+
+    </option>
+
+  </select>
+
+  <!-- SELECT MATERIAIS -->
+  <select
+    *ngIf="tipoItemSelecionado === 'material'"
+    [(ngModel)]="materialSelecionadoId"
+    class="add-row__select">
+
+    <option value="">
+      — Escolha um material —
+    </option>
+
+    <option
+      *ngFor="let mat of materiaisDoBanco()"
+      [value]="mat.id">
+
+      {{ mat.name }}
+
+    </option>
+
+  </select>
+
+  <!-- BOTÃO -->
+  <button
+    class="btn-secondary"
+    (click)="adicionarItem()">
+
+    Adicionar
+
+  </button>
+
+</div>
 
           <div class="structures">
             <div *ngFor="let est of estruturasAdicionadas(); let gIndex = index" class="structure">
@@ -243,19 +333,22 @@ import { ServiceOrderService, CreateOsPayload } from '../../../core/services/ser
     .badge--danger { color: var(--status-danger); background: var(--status-danger-bg); border-color: var(--status-danger-border); }
     .badge--success { color: var(--status-success); background: var(--status-success-bg); border-color: var(--status-success-border); }
     .badge--neutral { color: var(--text-secondary); background: var(--surface-hover); border-color: var(--border-strong); }
+    
   `]
 })
 export class OSListComponent implements OnInit {
   private materialService = inject(MaterialService);
   private osService = inject(ServiceOrderService);
+  private operationalUnitService = inject(OperationalUnitService);
   public router = inject(Router);
   private destroyRef = inject(DestroyRef);
+
 
   today = new Date();
   isSaving = signal(false);
   osAtual: any = null;
   
-  galpaoIdProvisorio: string = '00000000-0000-0000-0000-000000000000'; 
+   
   estados = [ 'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO' ];
 
   osForm = { 
@@ -266,9 +359,32 @@ export class OSListComponent implements OnInit {
   estruturasDoBanco = signal<any[]>([]);
   materiaisDoBanco = signal<any[]>([]);
   estruturaSelecionadaId = '';
+  tipoItemSelecionado = 'estrutura';
+  materialSelecionadoId = '';
+  materiaisAvulsos = signal<any[]>([]);
   estruturasAdicionadas = signal<any[]>([]);
+  selectedOperationalUnitId = '';
+  operationalUnits = signal<any[]>([]);
 
   ngOnInit() {
+    const token = localStorage.getItem('accessToken');
+  if (!token) {
+    console.warn('Sem token');
+    return;
+  }
+  this.operationalUnitService.getAll()
+  .pipe(takeUntilDestroyed(this.destroyRef))
+  .subscribe({
+    next: (data) => {
+      this.operationalUnits.set(data);
+
+      if (data.length > 0) {
+        this.selectedOperationalUnitId = data[0].id;
+      }
+    },
+    error: (err) => console.error(err)
+  });
+
     this.materialService.getStructures()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(data => this.estruturasDoBanco.set(data));
@@ -292,26 +408,86 @@ export class OSListComponent implements OnInit {
     }
   }
 
+  addMaterialAvulso() {
+  const material = this.materiaisDoBanco()
+    .find((m: any) => m.id === this.materialSelecionadoId);
+  if (!material) return;
+  this.estruturasAdicionadas.update(lista => {
+    // verifica se já existe
+    const existente = lista.find(
+      item => item.id === material.id
+    );
+    // se existir → soma quantidade
+    if (existente) {
+      existente.templates[0].quantity++;
+      return [...lista];
+    }
+    // se não existir → cria
+    return [
+      ...lista,
+      {
+        id: material.id,
+        name: material.name,
+        isMaterialAvulso: true,
+        templates: [
+          {
+            materialId: material.id,
+            quantity: 1
+          }
+        ]
+      }
+    ];
+  });
+
+  this.materialSelecionadoId = '';
+}
+
   removeEstrutura(index: number) {
     this.estruturasAdicionadas.update(prev => prev.filter((_, i) => i !== index));
   }
 
   prepararPayloadItens() {
-    const contadorMateriais: Record<string, number> = {};
-    this.estruturasAdicionadas().forEach(est => {
-      if (est.templates) {
-        est.templates.forEach((template: any) => {
-          const id = template.materialId;
-          contadorMateriais[id] = (contadorMateriais[id] || 0) + template.quantity;
-        });
-      }
-    });
-    return Object.keys(contadorMateriais).map(materialId => ({
-      materialId: materialId,
-      operationalUnitId: this.galpaoIdProvisorio, 
-      quantity: contadorMateriais[materialId]
-    }));
-  }
+  console.log(
+    'UUID selecionado:',
+    this.selectedOperationalUnitId
+  );
+
+  const contadorMateriais: Record<string, number> = {};
+
+  // ESTRUTURAS
+  this.estruturasAdicionadas().forEach(est => {
+    if (est.templates) {
+      est.templates.forEach((template: any) => {
+        const id = template.materialId;
+        contadorMateriais[id] =
+          (contadorMateriais[id] || 0)
+          + template.quantity;
+
+      });
+
+    }
+
+  });
+
+  // MATERIAIS AVULSOS
+  this.materiaisAvulsos().forEach(mat => {
+    contadorMateriais[mat.materialId] =
+      (contadorMateriais[mat.materialId] || 0)
+      + mat.quantity;
+
+  });
+  const payload = Object.keys(contadorMateriais).map(materialId => ({
+    materialId: materialId,
+    operationalUnitId:
+      this.selectedOperationalUnitId,
+    quantity:
+      contadorMateriais[materialId]
+
+  }));
+
+  console.log('Payload itens:', payload);
+  return payload;
+}
 
   finalizarOS() {
     if (!this.osForm.nome || !this.osForm.dataInicio) {

@@ -49,24 +49,29 @@ export class ServiceOrdersService {
       }
 
       // 2. Criação Encadeada: Endereço -> Evento
-      const event = await tx.event.create({
-        data: {
-          name: data.eventName,
-          startDate: new Date(data.startDate),
-          endDate: new Date(data.endDate),
-          status: 'PENDING', // Status inicial do planejamento
-          address: {
-            create: {
-              latitude: data.latitude,
-              longitude: data.longitude,
-              street: data.street,
-              city: data.city,
-              state: data.state,
-              zipCode: data.zipCode
-            }
-          }
-        }
-      });
+      const eventData: any = {
+  name: data.eventName,
+  startDate: new Date(data.startDate),
+  endDate: new Date(data.endDate),
+  status: 'PENDING',
+};
+
+if (data.street) {
+  eventData.address = {
+    create: {
+      latitude: data.latitude,
+      longitude: data.longitude,
+      street: data.street,
+      city: data.city,
+      state: data.state,
+      zipCode: data.zipCode,
+    }
+  };
+}
+
+const event = await tx.event.create({
+  data: eventData
+});
 
       // 3. Persistência da Ordem de Serviço
       return tx.serviceOrder.create({
