@@ -40,14 +40,14 @@ export class ServiceOrdersController {
 
   // 🚀 MÁQUINA DE ESTADOS: Submit (Vai e Volta)
   @Post(':id/submit')
-  @Roles(UserRole.PRODUCAO, UserRole.GALPAO)
+  @Roles(UserRole.ADMIN, UserRole.PRODUCAO, UserRole.GALPAO)
   submit(@Param('id') id: string, @Request() req) {
     return this.osService.submitServiceOrder(id, req.user.role);
   }
 
   // ✅ FINALIZAÇÃO: Apenas Produção
   @Post(':id/ready')
-  @Roles(UserRole.PRODUCAO)
+  @Roles(UserRole.ADMIN, UserRole.PRODUCAO)
   finalize(@Param('id') id: string, @Request() req) {
     return this.osService.finalizeServiceOrder(id, req.user.role);
   }

@@ -217,6 +217,12 @@ const event = await tx.event.create({
         throw new BadRequestException('Produção: Só é possível enviar ordens Rascunho ou Pendentes.');
       }
       newStatus = ServiceOrderStatus.ACTIVE; // Envia ao Galpão
+    }
+    if (role === UserRole.ADMIN) {
+      if (order.status !== ServiceOrderStatus.DRAFT && order.status !== ServiceOrderStatus.PENDING) {
+        throw new BadRequestException('Admin: Só é possível enviar ordens Rascunho ou Pendentes.');
+      }
+      newStatus = ServiceOrderStatus.ACTIVE; // Envia ao Galpão
     } 
     else if (role === UserRole.GALPAO) {
       if (order.status !== ServiceOrderStatus.ACTIVE) {
@@ -226,6 +232,7 @@ const event = await tx.event.create({
     } 
     else {
       throw new BadRequestException('Cargo sem permissão para transição de status.');
+      
     }
 
     return this.prisma.serviceOrder.update({

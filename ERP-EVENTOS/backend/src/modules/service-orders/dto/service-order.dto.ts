@@ -1,5 +1,4 @@
 // src/modules/service-orders/dto/service-order.dto.ts
-
 import { 
   IsString, 
   IsOptional, 
@@ -7,7 +6,7 @@ import {
   ValidateNested, 
   IsInt, 
   Min, 
-  IsUUID, 
+  IsUUID,
   ArrayMinSize,
   IsEnum,
   IsDateString,
