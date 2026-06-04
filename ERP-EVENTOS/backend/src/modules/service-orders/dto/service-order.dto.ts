@@ -78,3 +78,15 @@ export class UpdateServiceOrderDto {
   @Type(() => OrderItemDto)
   items?: OrderItemDto[];
 }
+
+export class ReviewServiceOrderDto {
+
+  @IsOptional()
+  @IsString()
+  observation?: string;
+
+  @IsArray()
+  @IsUUID('4', { each: true })
+  checkedItems!: string[];
+
+}

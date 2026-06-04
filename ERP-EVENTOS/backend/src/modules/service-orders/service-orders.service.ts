@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ServiceOrderStatus, UserRole, ServiceOrderItemStatus } from '@prisma/client';
-import { CreateServiceOrderDto, UpdateServiceOrderDto } from './dto/service-order.dto';
+import { CreateServiceOrderDto, ReviewServiceOrderDto, UpdateServiceOrderDto } from './dto/service-order.dto';
 
 /**
  * ServiceOrdersService - Core Logístico do ERP Vivere
@@ -105,36 +105,81 @@ const event = await tx.event.create({
    * Retorna todas as OSs com relacionamentos completos para o Dashboard.
    */
   async findAll() {
-    return this.prisma.serviceOrder.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        event: { include: { address: true } },
-        items: { 
-          where: { status: ServiceOrderItemStatus.ADDED }, 
-          include: { material: true } 
-        },
-        user: { select: { name: true, email: true } }
-      }
-    });
-  }
+  return this.prisma.serviceOrder.findMany({
+    orderBy: {
+      createdAt: 'desc'
+    },
 
+    include: {
+
+      event: {
+        include: {
+          address: true
+        }
+      },
+
+      user: {
+        select: {
+          name: true,
+          email: true
+        }
+      },
+
+      reviewedBy: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+
+      items: {
+        where: {
+          status: ServiceOrderItemStatus.ADDED
+        },
+
+        include: {
+          material: true,
+          operationalUnit: true
+        }
+      }
+    }
+  });
+}
   /**
    * Busca detalhes de uma OS específica para edição ou visualização.
    */
   async findOne(id: string) {
-    const os = await this.prisma.serviceOrder.findUnique({
-      where: { id },
-      include: {
-        event: { include: { address: true } },
-        items: { 
-          where: { status: ServiceOrderItemStatus.ADDED }, 
-          include: { material: true } 
+  const os = await this.prisma.serviceOrder.findUnique({
+    where: { id },
+    include: {
+      event: {
+        include: {
+          address: true
+        }
+      },
+
+      reviewedBy: true,
+
+      items: {
+        where: {
+          status: ServiceOrderItemStatus.ADDED
         },
+        include: {
+          material: true,
+          operationalUnit: true
+        }
       }
-    });
-    if (!os) throw new NotFoundException('Ordem de Serviço não encontrada.');
-    return os;
+    }
+  });
+
+  if (!os) {
+    throw new NotFoundException(
+      'Ordem de Serviço não encontrada.'
+    );
   }
+
+  return os;
+}
 
   // ==========================================
   // ✏️ GESTÃO DE ATUALIZAÇÕES
@@ -153,8 +198,8 @@ const event = await tx.event.create({
     if (!order) throw new NotFoundException('OS não encontrada.');
     
     // Bloqueios de Segurança: Impede que o Galpão edite rascunhos ou a Produção edite cargas em trânsito.
-    if (role === UserRole.PRODUCAO && order.status !== ServiceOrderStatus.DRAFT && order.status !== ServiceOrderStatus.PENDING) {
-      throw new BadRequestException('A Produção só pode editar OS em DRAFT ou PENDING (devolvida).');
+    if (role === UserRole.PRODUCAO && order.status !== ServiceOrderStatus.DRAFT && order.status !== ServiceOrderStatus.RETURNED) {
+      throw new BadRequestException('A Produção só pode editar OS em DRAFT ou RETURNED.');
     }
     if (role === UserRole.GALPAO && order.status !== ServiceOrderStatus.ACTIVE) {
       throw new BadRequestException('O Galpão só pode editar ordens com status ACTIVE.');
@@ -219,11 +264,8 @@ const event = await tx.event.create({
       newStatus = ServiceOrderStatus.ACTIVE; // Envia ao Galpão
     } 
     else if (role === UserRole.GALPAO) {
-      if (order.status !== ServiceOrderStatus.ACTIVE) {
-        throw new BadRequestException('Galpão: Só é possível processar ordens Ativas.');
-      }
-      newStatus = ServiceOrderStatus.PENDING; // Devolve para conferência da Produção
-    } 
+      throw new BadRequestException('Utilize a rota de revisão do galpão.');
+    }
     else {
       throw new BadRequestException('Cargo sem permissão para transição de status.');
     }
@@ -234,6 +276,48 @@ const event = await tx.event.create({
       include: { event: true } 
     });
   }
+
+  async reviewServiceOrder(
+  orderId: string,
+  reviewerId: string,
+  dto: ReviewServiceOrderDto
+) {
+
+  const order = await this.prisma.serviceOrder.findUnique({
+    where: { id: orderId },
+    include: {
+      items: true
+    }
+  });
+
+  if (!order) {
+    throw new NotFoundException('OS não encontrada');
+  }
+
+  const uncheckedItems = order.items.filter(
+    item => !dto.checkedItems.includes(item.id)
+  );
+
+  const newStatus =
+    uncheckedItems.length > 0
+      ? ServiceOrderStatus.RETURNED
+      : ServiceOrderStatus.PENDING;
+      
+  console.log('DTO RECEBIDO:', dto);
+  console.log('CHECKED ITEMS:', dto.checkedItems);
+  console.log('NOVO STATUS:', newStatus);
+
+  return this.prisma.serviceOrder.update({
+    where: { id: orderId },
+    data: {
+      status: newStatus,
+      observation: dto.observation,
+      reviewedAt: new Date(),
+      reviewedById: reviewerId,
+      missingItems: uncheckedItems
+    }
+  });
+}
 
   /**
    * Finaliza a OS, ativando o evento no mapa e liberando a carga para saída.
