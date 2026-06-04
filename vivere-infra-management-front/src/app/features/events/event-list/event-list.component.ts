@@ -34,6 +34,9 @@ import { EventService, VivereEvent } from '../../../core/services/event.service'
       <button [class.is-active]="filter === 'ACTIVE'" (click)="filter = 'ACTIVE'">
         No Galpão <span class="count tnum">{{ countByStatus('ACTIVE') }}</span>
       </button>
+      <button [class.is-active]="filter === 'PENDING'" (click)="filter = 'PENDING'">
+        Pendentes <span class="count tnum">{{ countByStatus('PENDING') }}</span>
+      </button>
       <button [class.is-active]="filter === 'READY'" (click)="filter = 'READY'">
         Aprovados <span class="count tnum">{{ countByStatus('READY') }}</span>
       </button>
@@ -94,30 +97,147 @@ import { EventService, VivereEvent } from '../../../core/services/event.service'
         </header>
 
         <div class="modal__body">
-          <div class="field">
-            <label>Nome do evento / projeto</label>
-            <input [(ngModel)]="editForm.name" />
-          </div>
 
-          <div class="field-grid">
-            <div class="field">
-              <label>Status (Via Máquina de Estados)</label>
-              <input [value]="statusLabel(editForm.status)" disabled style="background: #f1f5f9; cursor: not-allowed;"/>
-              <small style="font-size: 10px; color: var(--vivere-orange); margin-top: 4px;">O status deve ser alterado no painel da OS.</small>
-            </div>
-            <div class="field">
-              <label>Data início</label>
-              <input type="date"
-                [ngModel]="editForm.startDate | date:'yyyy-MM-dd'"
-                (ngModelChange)="editForm.startDate=$event" />
-            </div>
-          </div>
-        </div>
+  <div class="field">
+    <label>Nome do evento / projeto</label>
+    <input [(ngModel)]="editForm.name" />
+  </div>
 
-        <footer class="modal__foot">
-          <button class="btn-secondary" (click)="editForm = null">Cancelar</button>
-          <button class="btn-primary" (click)="salvarAlteracoes()">Atualizar Evento</button>
-        </footer>
+  <div class="field-grid">
+
+    <div class="field">
+      <label>Status (Via Máquina de Estados)</label>
+
+      <input
+        [value]="statusLabel(editForm.status)"
+        disabled
+        style="background:#f1f5f9; cursor:not-allowed;"
+      />
+
+      <small
+        style="
+          font-size:10px;
+          color:var(--vivere-orange);
+          margin-top:4px;
+        "
+      >
+        O status deve ser alterado pelo fluxo operacional da OS.
+      </small>
+    </div>
+
+    <div class="field">
+      <label>Data início</label>
+
+      <input
+        type="date"
+        [ngModel]="editForm.startDate | date:'yyyy-MM-dd'"
+        (ngModelChange)="editForm.startDate = $event"
+      />
+    </div>
+
+  </div>
+
+  <hr style="margin:20px 0">
+
+  <h4>Detalhes Operacionais</h4>
+
+  <div class="field-grid">
+
+    <div class="field">
+      <label>Fornecedor</label>
+
+      <input
+        [value]="editForm.supplier || '-'"
+        disabled
+      />
+    </div>
+
+    <div class="field">
+      <label>Status da Ordem</label>
+
+      <input
+        [value]="editForm.status"
+        disabled
+      />
+    </div>
+
+  </div>
+
+  <div class="field">
+    <label>Observações do Galpão</label>
+
+    <textarea
+      rows="4"
+      [(ngModel)]="editForm.observation">
+    </textarea>
+  </div>
+
+  <hr style="margin:20px 0">
+  <h4>Checklist do Galpão</h4>
+
+  <div class="checklist-container">
+
+  <div
+    *ngFor="let item of editForm.items"
+    class="material-card">
+
+    <div class="material-check">
+      <input
+        type="checkbox"
+        [(ngModel)]="item.checked"
+        [ngModelOptions]="{standalone:true}">
+    </div>
+
+    <div class="material-info">
+
+      <div class="material-name">
+        {{ item.material?.name }}
+      </div>
+
+      <div class="material-meta">
+        <span>Qtd: {{ item.quantity }}</span>
+        <span>Estoque: {{ item.material?.stock }}</span>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+  <button
+    class="btn-primary"
+    (click)="aprovarGalpao()">
+    Aprovar e Enviar para Produção
+  </button>
+
+  <button
+    class="btn-secondary"
+    (click)="devolverGalpao()">
+    Devolver para Produção
+  </button>
+
+  <button
+    class="btn-secondary"
+    (click)="editForm = null">
+    Cancelar
+  </button>
+
+  <button
+    class="btn-primary"
+    (click)="salvarAlteracoes()">
+    Atualizar Evento
+  </button>
+
+<footer class="modal__foot">
+  <button class="btn-secondary" (click)="editForm = null">
+    Cancelar
+  </button>
+
+  <button class="btn-primary" (click)="salvarAlteracoes()">
+    Atualizar Evento
+  </button>
+</footer>
       </div>
     </div>
   `,
@@ -173,11 +293,16 @@ import { EventService, VivereEvent } from '../../../core/services/event.service'
     .empty-state p { margin: 0; font-size: 13px; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(15,15,15,0.55); display: flex; align-items: center; justify-content: center; z-index: 3000; backdrop-filter: blur(2px); animation: fadeIn 150ms var(--ease); }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    .modal { width: 560px; max-width: calc(100% - 40px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-modal); display: flex; flex-direction: column; animation: scaleIn 150ms var(--ease); }
-    @keyframes scaleIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+    .modal { width: 900px;max-width: calc(100% - 40px);max-height: 90vh;overflow-y: auto;background: var(--surface);border: 1px solid var(--border);border-radius: var(--radius-lg);box-shadow: var(--shadow-modal);display: flex;flex-direction: column;animation: scaleIn 150ms var(--ease);}    @keyframes scaleIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
     .modal__head { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; }
     .modal__eyebrow { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--vivere-orange); margin-bottom: 4px; }
     .modal__head h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--text-strong); }
+    .material-card{display:flex;align-items:center;gap:16px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:#fff;transition:.2s;}
+    .material-card:hover{transform:translateY(-1px);}
+    .material-check{flex-shrink:0;}
+    .material-info{flex:1;}
+    .material-name{font-weight:600;font-size:14px;}
+    .material-meta{display:flex;gap:20px;margin-top:4px;font-size:12px;color:#64748b;}  
     .btn-close { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--text-tertiary); cursor: pointer; transition: all var(--duration) var(--ease); }
     .btn-close:hover { background: var(--surface-sunken); color: var(--text-primary); border-color: var(--border); }
     .modal__body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
@@ -187,6 +312,14 @@ import { EventService, VivereEvent } from '../../../core/services/event.service'
     .field input:focus { outline: none; border-color: var(--vivere-orange); box-shadow: 0 0 0 3px rgba(255,102,0,0.12); }
     .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .modal__foot { padding: 14px 22px; border-top: 1px solid var(--border); background: var(--surface-sunken); display: flex; justify-content: flex-end; gap: 8px; }
+    .checklist-container{max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;}    .checklist-container table {width: 100%;border-collapse: collapse;}
+    .checklist-container th,
+    .checklist-container td {padding: 8px 10px;border-bottom: 1px solid var(--border-subtle);}
+    .checklist-container thead th {position: sticky;top: 0;background: var(--surface-sunken);z-index: 5;}
+    .checklist-container tbody tr:hover {background: var(--surface-hover);}
+    .checklist-item{display:flex;align-items:center;gap:16px;padding:10px;border-bottom:1px solid var(--border-subtle);}
+    .check-col{flex:1;}
+    .check-col.material{flex:3;font-weight:600;}
   `]
 })
 export class EventListComponent implements OnInit {
@@ -219,12 +352,13 @@ export class EventListComponent implements OnInit {
   }
 
   statusLabel(status: string): string {
-    return ({
-      'DRAFT': 'Rascunho (OS)',
-      'ACTIVE': 'No Galpão',
-      'PENDING': 'Devolvido (Pendente)',
-      'READY': 'Pronto/Aprovado'
-    } as Record<string, string>)[status] || status;
+  return ({
+    DRAFT: 'Rascunho',
+    ACTIVE: 'No Galpão',
+    RETURNED: 'Devolvido',
+    PENDING: 'Aguardando Aprovação',
+    READY: 'Aprovado'
+    } as Record<string,string>)[status] || status;
   }
 
   badgeClass(status: string): string {
@@ -239,8 +373,13 @@ export class EventListComponent implements OnInit {
   }
 
   abrirEdicao(event: any) {
-    // Agora o id que precisamos passar para o PUT é o id da OS, pois o EventService envelopa a OS
-    this.editForm = { ...event };
+    console.log('EVENTO', event);
+    console.log('ITENS', event.items);
+    console.log('ID OS', event.osId)
+    this.editForm = { 
+      ...event,
+      id: event.osId
+    };
   }
 
   salvarAlteracoes() {
@@ -255,9 +394,10 @@ export class EventListComponent implements OnInit {
         startDate: new Date(startStr).toISOString()
         // O status é deliberadamente omitido aqui para respeitar o pipeline de aprovação
       };
-
+      console.log('EVENT ID:', this.editForm.id);
+      console.log('OS ID:', this.editForm.osId);
       // O EventService.updateEvent mapeia para PUT /service-orders/:id
-      this.eventService.updateEvent(this.editForm.id, payloadLimpo)
+      this.eventService.updateEvent(this.editForm.osId, payloadLimpo)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
           next: () => {
@@ -269,4 +409,65 @@ export class EventListComponent implements OnInit {
         });
     }
   }
+
+  aprovarGalpao() {
+
+  if (!this.editForm?.osId) {
+    alert('OS não encontrada.');
+    return;
+  }
+
+const checkedItems =
+  this.editForm.items
+    ?.filter((i: any) => i.checked)
+    .map((i: any) => i.id) || [];
+
+console.log('CHECKED ITEMS:', checkedItems);
+console.log('ITENS DA OS:', this.editForm.items);
+
+  const dto = {
+    observation: this.editForm.observation,
+    checkedItems
+  };
+
+  this.eventService
+    .reviewOrder(this.editForm.osId, dto)
+    .subscribe({
+      next: () => {
+        alert('✅ OS aprovada e enviada para Produção');
+        this.editForm = null;
+        this.loadEvents();
+      },
+      error: (err) => {
+        console.error(err);
+        alert('Erro ao aprovar OS');
+      }
+    });
+}
+
+devolverGalpao() {
+  if (!this.editForm?.osId) {
+    alert('OS não encontrada.');
+    return;
+  }
+
+  const dto = {
+    observation: this.editForm.observation,
+    checkedItems: []
+  };
+
+  this.eventService
+    .reviewOrder(this.editForm.osId, dto)
+    .subscribe({
+      next: () => {
+        alert('↩️ OS devolvida para Produção');
+        this.editForm = null;
+        this.loadEvents();
+      },
+      error: (err) => {
+        console.error(err);
+        alert('Erro ao devolver OS');
+      }
+    });
+}
 }

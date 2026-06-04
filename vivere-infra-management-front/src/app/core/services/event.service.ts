@@ -13,6 +13,12 @@ export interface VivereEvent {
   status: string;
   description: string;
   address?: any; // Mantido para o mapeamento seguro
+  serviceOrderId?: string;
+  supplier?: string;
+  observation?: string;
+  missingItems?: any[];
+  reviewedBy?: any;
+  items?: any[];
 }
 
 @Injectable({
@@ -24,16 +30,20 @@ export class EventService {
   private apiUrl = 'http://localhost:8081/service-orders'; 
 
   getEvents(): Observable<VivereEvent[]> {
-    return this.http.get<any[]>(this.apiUrl).pipe(
-      // Extraímos o 'event' de dentro do retorno da 'service-order'
-      map(orders => orders.map(os => ({
-        ...os.event,
-        // Mantemos o status logístico visível
-        status: os.status,
-        description: os.supplier || 'Sem fornecedor definido'
-      })))
-    );
-  }
+  return this.http.get<any[]>(this.apiUrl).pipe(
+    map(orders => orders.map(os => ({
+      ...os.event,
+
+      osId: os.id,
+      status: os.status,
+      supplier: os.supplier,
+      observation: os.observation,
+      items: os.items,
+
+      description: os.supplier || 'Sem fornecedor definido'
+    })))
+  );
+}
 
   // Como a criação agora é centralizada na OS, estes métodos disparam avisos se usados incorretamente
   createEvent(event: any): Observable<any> {
@@ -44,6 +54,10 @@ export class EventService {
   updateEvent(id: string, event: any): Observable<any> {
     return this.http.put(`${this.apiUrl}/${id}`, event);
   }
+
+  reviewOrder(id: string, dto: any) {
+  return this.http.post(`${this.apiUrl}/${id}/review`,dto);
+}
 
   deleteEvent(id: string): Observable<any> {
     return this.http.delete(`${this.apiUrl}/${id}`);

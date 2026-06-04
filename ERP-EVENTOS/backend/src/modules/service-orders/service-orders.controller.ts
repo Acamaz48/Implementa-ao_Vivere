@@ -1,6 +1,6 @@
 import { Controller, Post, Put, Get, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { ServiceOrdersService } from './service-orders.service';
-import { CreateServiceOrderDto, UpdateServiceOrderDto } from './dto/service-order.dto';
+import { CreateServiceOrderDto, UpdateServiceOrderDto, ReviewServiceOrderDto } from './dto/service-order.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -26,28 +26,42 @@ export class ServiceOrdersController {
 
   // 🛠️ CRIAÇÃO UNIFICADA: Apenas Produção
   @Post()
-  @Roles(UserRole.PRODUCAO)
+  @Roles(UserRole.PRODUCAO, UserRole.ADMIN)
   create(@Body() dto: CreateServiceOrderDto, @Request() req) {
     return this.osService.createServiceOrder(req.user.userId, dto);
   }
 
   // ✏️ EDIÇÃO: Produção e Galpão
   @Put(':id')
-  @Roles(UserRole.PRODUCAO, UserRole.GALPAO)
+  @Roles(UserRole.PRODUCAO, UserRole.GALPAO, UserRole.ADMIN)
   update(@Param('id') id: string, @Body() dto: UpdateServiceOrderDto, @Request() req) {
     return this.osService.updateServiceOrder(id, req.user.role, dto);
   }
 
   // 🚀 MÁQUINA DE ESTADOS: Submit (Vai e Volta)
   @Post(':id/submit')
-  @Roles(UserRole.PRODUCAO, UserRole.GALPAO)
+  @Roles(UserRole.PRODUCAO, UserRole.GALPAO, UserRole.ADMIN)
   submit(@Param('id') id: string, @Request() req) {
     return this.osService.submitServiceOrder(id, req.user.role);
   }
 
+  @Post(':id/review')
+@Roles(UserRole.GALPAO)
+review(
+  @Param('id') id: string,
+  @Body() dto: ReviewServiceOrderDto,
+  @Request() req
+) {
+  return this.osService.reviewServiceOrder(
+    id,
+    req.user.userId,
+    dto
+  );
+}
+
   // ✅ FINALIZAÇÃO: Apenas Produção
   @Post(':id/ready')
-  @Roles(UserRole.PRODUCAO)
+  @Roles(UserRole.PRODUCAO, UserRole.ADMIN)
   finalize(@Param('id') id: string, @Request() req) {
     return this.osService.finalizeServiceOrder(id, req.user.role);
   }
