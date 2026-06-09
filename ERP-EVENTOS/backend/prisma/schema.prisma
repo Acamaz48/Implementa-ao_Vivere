@@ -120,6 +120,8 @@ model ServiceOrder {
   userId       String
   createdAt    DateTime           @default(now())
   missingItems Json?
+  checked      Boolean             @default(false)
+  unavailable  Boolean            @default(false)
   supplier     String?
   updatedAt    DateTime           @updatedAt
   status       ServiceOrderStatus @default(DRAFT)

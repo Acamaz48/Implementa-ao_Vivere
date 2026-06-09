@@ -59,6 +59,18 @@ review(
   );
 }
 
+@Post(':id/resubmit')
+@Roles(UserRole.PRODUCAO, UserRole.ADMIN)
+resubmit(
+  @Param('id') id: string,
+  @Request() req
+) {
+  return this.osService.resubmitServiceOrder(
+    id,
+    req.user.role
+  );
+}
+
   // ✅ FINALIZAÇÃO: Apenas Produção
   @Post(':id/ready')
   @Roles(UserRole.PRODUCAO, UserRole.ADMIN)

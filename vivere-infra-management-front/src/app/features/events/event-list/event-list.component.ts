@@ -3,7 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MaterialService } from '../../../core/services/material.service';
 import { EventService, VivereEvent } from '../../../core/services/event.service';
+import jsPDF from 'jspdf';
 
 @Component({
   selector: 'app-event-list',
@@ -33,6 +35,9 @@ import { EventService, VivereEvent } from '../../../core/services/event.service'
       </button>
       <button [class.is-active]="filter === 'ACTIVE'" (click)="filter = 'ACTIVE'">
         No Galpão <span class="count tnum">{{ countByStatus('ACTIVE') }}</span>
+      </button>
+      <button [class.is-active]="filter === 'RETURNED'" (click)="filter = 'RETURNED'">
+        Devolvidos <span class="count tnum">{{ countByStatus('RETURNED') }}</span>
       </button>
       <button [class.is-active]="filter === 'PENDING'" (click)="filter = 'PENDING'">
         Pendentes <span class="count tnum">{{ countByStatus('PENDING') }}</span>
@@ -173,30 +178,119 @@ import { EventService, VivereEvent } from '../../../core/services/event.service'
   </div>
 
   <hr style="margin:20px 0">
+  <!-- CHECKLIST -->
+
+<div
+  *ngIf="
+    isActive() ||
+    isReturned() ||
+    isPending() ||
+    isReady()
+  ">
+
   <h4>Checklist do Galpão</h4>
 
   <div class="checklist-container">
 
-  <div
-    *ngFor="let item of editForm.items"
-    class="material-card">
+    <div
+      *ngFor="
+        let item of (
+          isReturned()
+            ? getItensPendentes()
+            : editForm.items
+        )
+      "
+      class="material-card">
 
-    <div class="material-check">
-      <input
-        type="checkbox"
-        [(ngModel)]="item.checked"
-        [ngModelOptions]="{standalone:true}">
-    </div>
+      <div class="material-check">
 
-    <div class="material-info">
+        <input
+          type="checkbox"
+          [(ngModel)]="item.checked"
+          [disabled]="!isActive()">
 
-      <div class="material-name">
-        {{ item.material?.name }}
       </div>
 
-      <div class="material-meta">
-        <span>Qtd: {{ item.quantity }}</span>
-        <span>Estoque: {{ item.material?.stock }}</span>
+      <div class="material-info">
+
+        <!-- ACTIVE / PENDING / READY -->
+
+        <ng-container *ngIf="!isReturned()">
+
+          <div class="material-name">
+            {{ item.material?.name }}
+          </div>
+
+        </ng-container>
+
+        <!-- RETURNED -->
+
+        <ng-container *ngIf="isReturned()">
+
+  <label>Substituir Material</label>
+
+  <select
+    [(ngModel)]="item.materialId">
+
+    <option
+      *ngFor="let material of materiaisDisponiveis"
+      [value]="material.id">
+
+      {{ material.name }}
+
+    </option>
+
+  </select>
+
+  <div class="field">
+
+    <label>Quantidade</label>
+
+    <input
+      type="number"
+      min="1"
+      [(ngModel)]="item.quantity">
+
+  </div>
+
+</ng-container>
+
+        <div class="material-meta">
+
+          <span>
+            Qtd: {{ item.quantity }}
+          </span>
+
+          <span>
+            Estoque:
+            {{ item.material?.stock }}
+          </span>
+
+        </div>
+
+        <div
+            class="material-status success"
+            *ngIf="
+              item.checked ||
+              editForm.status === 'PENDING' ||
+              editForm.status === 'READY'
+            ">
+
+            ✔ Conferido
+
+        </div>
+
+      <div
+          class="material-status error"
+          *ngIf="
+            !item.checked &&
+            editForm.status !== 'PENDING' &&
+            editForm.status !== 'READY'
+          ">
+
+          ✖ Pendente
+      </div>
+
       </div>
 
     </div>
@@ -205,41 +299,119 @@ import { EventService, VivereEvent } from '../../../core/services/event.service'
 
 </div>
 
+<!-- ACTIVE -->
+
+<div *ngIf="isActive()">
+
   <button
     class="btn-primary"
     (click)="aprovarGalpao()">
+
     Aprovar e Enviar para Produção
+
   </button>
 
   <button
     class="btn-secondary"
     (click)="devolverGalpao()">
+
     Devolver para Produção
+
   </button>
+
+</div>
+
+<!-- RETURNED -->
+
+<div *ngIf="isReturned()">
+
+  <h4>Itens com Pendência</h4>
+
+  <p>
+    O galpão devolveu esta OS para correção.
+  </p>
+
+  <button
+    class="btn-primary"
+    (click)="corrigirEReenviar()">
+
+    Corrigir e Reenviar para o Galpão
+
+  </button>
+
+</div>
+
+<!-- PENDING -->
+
+<div *ngIf="isPending()">
+
+  <h4>Validação Final da Produção</h4>
+
+  <div class="field">
+
+    <label>
+      Observações do Galpão
+    </label>
+
+    <textarea
+      [value]="editForm.observation"
+      disabled>
+    </textarea>
+
+  </div>
+
+  <button
+    class="btn-primary"
+    (click)="aprovarProducao()">
+
+    Aprovar OS
+
+  </button>
+
+</div>
+
+<!-- READY -->
+
+<div *ngIf="isReady()">
+
+  <h4>OS Aprovada</h4>
+
+  <p>
+    Esta ordem já foi aprovada.
+  </p>
+
+  <button
+  class="btn-secondary"
+  (click)="exportarPdf()">
+
+  Exportar PDF
+
+</button>
+
+</div>
+
+<!-- DRAFT -->
+
+<button
+  *ngIf="editForm.status === 'DRAFT'"
+  class="btn-primary"
+  (click)="salvarAlteracoes()">
+
+  Atualizar Evento
+
+</button>
+
+<footer class="modal__foot">
 
   <button
     class="btn-secondary"
     (click)="editForm = null">
+
     Cancelar
+
   </button>
 
-  <button
-    class="btn-primary"
-    (click)="salvarAlteracoes()">
-    Atualizar Evento
-  </button>
-
-<footer class="modal__foot">
-  <button class="btn-secondary" (click)="editForm = null">
-    Cancelar
-  </button>
-
-  <button class="btn-primary" (click)="salvarAlteracoes()">
-    Atualizar Evento
-  </button>
 </footer>
-      </div>
-    </div>
   `,
   styles: [`
     .page-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 18px 28px; background: var(--surface); border-bottom: 1px solid var(--border); }
@@ -302,7 +474,10 @@ import { EventService, VivereEvent } from '../../../core/services/event.service'
     .material-check{flex-shrink:0;}
     .material-info{flex:1;}
     .material-name{font-weight:600;font-size:14px;}
-    .material-meta{display:flex;gap:20px;margin-top:4px;font-size:12px;color:#64748b;}  
+    .material-meta{display:flex;gap:20px;margin-top:4px;font-size:12px;color:#64748b;}
+    .material-status {margin-top: 6px;font-size: 12px;font-weight: 600;}
+    .material-status.success {color: #16a34a;}
+    .material-status.error {color: #dc2626;}
     .btn-close { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--text-tertiary); cursor: pointer; transition: all var(--duration) var(--ease); }
     .btn-close:hover { background: var(--surface-sunken); color: var(--text-primary); border-color: var(--border); }
     .modal__body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
@@ -326,12 +501,28 @@ export class EventListComponent implements OnInit {
   private eventService = inject(EventService);
   public router = inject(Router);
   private destroyRef = inject(DestroyRef);
+  private materialService = inject(MaterialService);
+
+  materiaisDisponiveis: any[] = [];
 
   filter = 'ALL';
   events = signal<any[]>([]);
   editForm: any | null = null; 
 
-  ngOnInit() { this.loadEvents(); }
+  ngOnInit() {
+
+  this.loadEvents();
+
+  this.materialService.getMaterials().subscribe({
+    next: (data) => {
+      this.materiaisDisponiveis = data;
+    },
+    error: (err) => {
+      console.error('Erro ao carregar materiais', err);
+    }
+  });
+
+}
 
   loadEvents() {
     this.eventService.getEvents()
@@ -383,32 +574,121 @@ export class EventListComponent implements OnInit {
   }
 
   salvarAlteracoes() {
-    if (this.editForm && this.editForm.id) {
-      
-      let startStr = this.editForm.startDate as string;
-      if (!startStr.includes('T')) startStr += 'T12:00:00';
-
-      // Correção do Contrato: Enviamos 'eventName' como o UpdateServiceOrderDto espera
-      const payloadLimpo = {
-        eventName: this.editForm.name,
-        startDate: new Date(startStr).toISOString()
-        // O status é deliberadamente omitido aqui para respeitar o pipeline de aprovação
-      };
-      console.log('EVENT ID:', this.editForm.id);
-      console.log('OS ID:', this.editForm.osId);
-      // O EventService.updateEvent mapeia para PUT /service-orders/:id
-      this.eventService.updateEvent(this.editForm.osId, payloadLimpo)
-        .pipe(takeUntilDestroyed(this.destroyRef))
-        .subscribe({
-          next: () => {
-            alert('✅ Registro atualizado com sucesso!');
-            this.editForm = null;
-            this.loadEvents();
-          },
-          error: (err: any) => alert('❌ Erro ao salvar: ' + (err.error?.message || err.message))
-        });
+  if (this.editForm && this.editForm.id) {
+    let startStr = this.editForm.startDate as string;
+    if (!startStr.includes('T')) {
+      startStr += 'T12:00:00';
     }
+    const payloadLimpo: any = {
+      eventName: this.editForm.name,
+      startDate: new Date(startStr).toISOString()
+    };
+    // Se for uma OS devolvida, envia também os itens corrigidos
+    if (this.editForm.status === 'RETURNED') {
+      payloadLimpo.items =
+        this.editForm.items.map((item: any) => ({
+          materialId: item.materialId,
+          operationalUnitId: item.operationalUnitId,
+          quantity: item.quantity
+        }));
+    }
+    console.log('EVENT ID:', this.editForm.id);
+    console.log('OS ID:', this.editForm.osId);
+    console.log('PAYLOAD:', payloadLimpo);
+    this.eventService
+      .updateEvent(
+        this.editForm.osId,
+        payloadLimpo
+      )
+      .pipe(
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: () => {
+          alert(
+            '✅ Registro atualizado com sucesso!'
+          );
+          this.editForm = null;
+          this.loadEvents();
+        },
+        error: (err: any) => {
+          alert(
+            '❌ Erro ao salvar: ' +
+            (err.error?.message || err.message)
+          );
+        }
+      });
   }
+}
+
+exportarPdf() {
+  const pdf = new jsPDF();
+  pdf.text(
+    `OS: ${this.editForm.name}`,
+    10,
+    10
+  );
+  pdf.save(
+    `OS-${this.editForm.name}.pdf`
+  );
+}
+
+  corrigirEReenviar() {
+  if (!this.editForm?.osId) {
+    alert('OS não encontrada.');
+    return;
+  }
+  let startStr = this.editForm.startDate as string;
+  if (!startStr.includes('T')) {
+    startStr += 'T12:00:00';
+  }
+  const payload: any = {
+    eventName: this.editForm.name,
+    startDate: new Date(startStr).toISOString(),
+
+    items: this.editForm.items.map(
+      (item: any) => ({
+        materialId: item.materialId,
+        operationalUnitId: item.operationalUnitId,
+        quantity: item.quantity
+      })
+    )
+  };
+  this.eventService
+    .updateEvent(
+      this.editForm.osId,
+      payload
+    )
+    .subscribe({
+      next: () => {
+        this.eventService
+          .resubmitOrder(
+            this.editForm.osId
+          )
+          .subscribe({
+            next: () => {
+              alert(
+                '✅ Correções enviadas para o Galpão.'
+              );
+              this.editForm = null;
+              this.loadEvents();
+            },
+            error: (err) => {
+              console.error(err);
+              alert(
+                'Erro ao reenviar para o Galpão.'
+              );
+            }
+          });
+      },
+      error: (err) => {
+        console.error(err);
+        alert(
+          'Erro ao salvar alterações.'
+        );
+      }
+    });
+}
 
   aprovarGalpao() {
 
@@ -417,13 +697,13 @@ export class EventListComponent implements OnInit {
     return;
   }
 
-const checkedItems =
+  const checkedItems =
   this.editForm.items
     ?.filter((i: any) => i.checked)
     .map((i: any) => i.id) || [];
 
-console.log('CHECKED ITEMS:', checkedItems);
-console.log('ITENS DA OS:', this.editForm.items);
+  console.log('CHECKED ITEMS:', checkedItems);
+  console.log('ITENS DA OS:', this.editForm.items);
 
   const dto = {
     observation: this.editForm.observation,
@@ -469,5 +749,91 @@ devolverGalpao() {
         alert('Erro ao devolver OS');
       }
     });
+}
+
+aprovarProducao() {
+
+  if (!this.editForm?.osId) {
+    alert('OS não encontrada.');
+    return;
+  }
+
+  this.eventService
+    .aprovarProducao(this.editForm.osId)
+    .subscribe({
+      next: () => {
+        alert('✅ OS aprovada com sucesso');
+
+        this.editForm = null;
+
+        this.loadEvents();
+      },
+
+      error: (err) => {
+        console.error(err);
+
+        alert(
+          err.error?.message ||
+          'Erro ao aprovar OS'
+        );
+      }
+    });
+}
+reenviarGalpao() {
+
+  if (!this.editForm?.osId) {
+    return;
+  }
+
+  this.eventService
+    .resubmitOrder(this.editForm.osId)
+    .subscribe({
+
+      next: () => {
+
+        alert(
+          'OS reenviada ao Galpão.'
+        );
+
+        this.editForm = null;
+
+        this.loadEvents();
+      },
+
+      error: (err) => {
+
+        console.error(err);
+
+        alert(
+          'Erro ao reenviar.'
+        );
+      }
+    });
+}
+getItensPendentes() {
+
+  if (!this.editForm?.items) {
+    return [];
+  }
+
+  return this.editForm.items.filter(
+    (item: any) => item.unavailable
+  );
+
+}
+isReturned() {
+  return this.editForm?.status === 'RETURNED';
+}
+
+isPending() {
+  return this.editForm?.status === 'PENDING';
+}
+
+isActive() {
+  return this.editForm?.status === 'ACTIVE';
+}
+
+isReady() {
+  return this.editForm?.status === 'READY';
 }
 }

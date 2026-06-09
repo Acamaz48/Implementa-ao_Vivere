@@ -111,27 +111,25 @@ const event = await tx.event.create({
     },
 
     include: {
+  event: {
+    include: {
+      address: true
+    }
+  },
 
-      event: {
-        include: {
-          address: true
-        }
-      },
+  user: {
+    select: {
+      name: true,
+      email: true
+    }
+  },
 
-      user: {
-        select: {
-          name: true,
-          email: true
-        }
-      },
-
-      reviewedBy: {
-        select: {
-          id: true,
-          name: true
-        }
-      },
-
+  reviewedBy: {
+    select: {
+      id: true,
+      name: true
+    }
+  },
       items: {
         where: {
           status: ServiceOrderItemStatus.ADDED
@@ -141,6 +139,7 @@ const event = await tx.event.create({
           material: true,
           operationalUnit: true
         }
+        
       }
     }
   });
@@ -277,6 +276,61 @@ const event = await tx.event.create({
     });
   }
 
+  async resubmitServiceOrder(
+  orderId: string,
+  role: UserRole
+) {
+
+  if (
+    role !== UserRole.PRODUCAO &&
+    role !== UserRole.ADMIN
+  ) {
+    throw new BadRequestException(
+      'Somente Produção pode reenviar.'
+    );
+  }
+
+  const order =
+    await this.prisma.serviceOrder.findUnique({
+      where: { id: orderId }
+    });
+
+  if (
+    order?.status !== ServiceOrderStatus.RETURNED
+  ) {
+    throw new BadRequestException(
+      'Apenas OS devolvidas podem ser reenviadas.'
+    );
+  }
+
+  await this.prisma.serviceOrderItem.updateMany({
+    where: {
+      serviceOrderId: orderId
+    },
+    data: {
+      unavailable: false
+    }
+  });
+
+  return this.prisma.serviceOrder.update({
+    where: { id: orderId },
+
+    data: {
+      status: ServiceOrderStatus.ACTIVE,
+      observation: null,
+      reviewedAt: null,
+      reviewedById: null,
+      missingItems: []
+    },
+
+    include: {
+      event: true,
+      items: true
+    }
+  });
+
+}
+
   async reviewServiceOrder(
   orderId: string,
   reviewerId: string,
@@ -302,13 +356,49 @@ const event = await tx.event.create({
     uncheckedItems.length > 0
       ? ServiceOrderStatus.RETURNED
       : ServiceOrderStatus.PENDING;
-      
-  console.log('DTO RECEBIDO:', dto);
-  console.log('CHECKED ITEMS:', dto.checkedItems);
-  console.log('NOVO STATUS:', newStatus);
+
+  // limpa estado anterior
+await this.prisma.serviceOrderItem.updateMany({
+  where: {
+    serviceOrderId: orderId
+  },
+  data: {
+    checked: false,
+    unavailable: false
+  }
+});
+
+// marca os conferidos
+await this.prisma.serviceOrderItem.updateMany({
+  where: {
+    id: {
+      in: dto.checkedItems || []
+    }
+  },
+  data: {
+    checked: true
+  }
+});
+
+// marca os faltantes
+if (uncheckedItems.length > 0) {
+
+  await this.prisma.serviceOrderItem.updateMany({
+    where: {
+      id: {
+        in: uncheckedItems.map(i => i.id)
+      }
+    },
+    data: {
+      unavailable: true
+    }
+  });
+
+}
 
   return this.prisma.serviceOrder.update({
     where: { id: orderId },
+
     data: {
       status: newStatus,
       observation: dto.observation,
@@ -317,6 +407,7 @@ const event = await tx.event.create({
       missingItems: uncheckedItems
     }
   });
+
 }
 
   /**
@@ -342,7 +433,7 @@ const event = await tx.event.create({
       return tx.serviceOrder.update({
         where: { id: orderId },
         data: { status: ServiceOrderStatus.READY },
-        include: { event: true }
+        include: {event: true,items: {include: {material: true}}}
       });
     });
   }
