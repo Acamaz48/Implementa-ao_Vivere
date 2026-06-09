@@ -812,13 +812,14 @@ reenviarGalpao() {
 }
 getItensPendentes() {
 
-  if (!this.editForm?.items) {
-    return [];
-  }
-
-  return this.editForm.items.filter(
-    (item: any) => item.unavailable
+  console.log(
+    'ITEMS DA OS',
+    this.editForm?.items
   );
+
+  return this.editForm?.items?.filter(
+    (item: any) => item.unavailable
+  ) || [];
 
 }
 isReturned() {

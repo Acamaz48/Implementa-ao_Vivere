@@ -219,10 +219,11 @@ const event = await tx.event.create({
 
       // Lógica de Itens: Invalida os antigos e adiciona os novos para manter histórico (REMOVED)
       if (data.items && data.items.length > 0) {
-        await tx.serviceOrderItem.updateMany({
-          where: { serviceOrderId: orderId, status: ServiceOrderItemStatus.ADDED },
-          data: { status: ServiceOrderItemStatus.REMOVED },
-        });
+        await tx.serviceOrderItem.deleteMany({
+            where: {
+              serviceOrderId: orderId
+            }
+          });
 
         await tx.serviceOrderItem.createMany({
           data: data.items.map(item => ({
@@ -316,7 +317,7 @@ const event = await tx.event.create({
     where: { id: orderId },
 
     data: {
-      status: ServiceOrderStatus.ACTIVE,
+      status: ServiceOrderStatus.PENDING,
       observation: null,
       reviewedAt: null,
       reviewedById: null,
@@ -347,7 +348,8 @@ const event = await tx.event.create({
   if (!order) {
     throw new NotFoundException('OS não encontrada');
   }
-
+  console.log(order.items);
+  console.log(dto.checkedItems);
   const uncheckedItems = order.items.filter(
     item => !dto.checkedItems.includes(item.id)
   );
