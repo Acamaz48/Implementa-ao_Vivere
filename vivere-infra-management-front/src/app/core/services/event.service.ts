@@ -32,16 +32,19 @@ export class EventService {
   getEvents(): Observable<VivereEvent[]> {
   return this.http.get<any[]>(this.apiUrl).pipe(
     map(orders => orders.map(os => ({
-      ...os.event,
+        ...os.event,
 
-      osId: os.id,
-      status: os.status,
-      supplier: os.supplier,
-      observation: os.observation,
-      items: os.items,
+        osId: os.id,
+        status: os.status,
+        supplier: os.supplier,
+        observation: os.observation,
+        items: os.items,
 
-      description: os.supplier || 'Sem fornecedor definido'
-    })))
+        address: os.event?.address,
+
+        latitude: os.event?.address?.latitude,
+        longitude: os.event?.address?.longitude
+      })))
   );
 }
 

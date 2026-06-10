@@ -162,11 +162,14 @@ import { OperationalUnitService } from '../../../core/services/operational-unit.
             <td>
               <input type="text" [(ngModel)]="osForm.local" [disabled]="osAtual">
             </td>
+                  <tr>
+                        <td colspan="4">
+                        </td>
+                    </tr>
             <td class="label">CONTATO:</td>
             <td>
               <input type="text" [(ngModel)]="osForm.contato" [disabled]="osAtual">
             </td>
-          </tr>
           <tr>
             <td class="label">HORÁRIO:</td>
             <td colspan="3">
@@ -421,7 +424,9 @@ export class OSListComponent implements OnInit {
     horario: '',
     entrega: '',
     respTecnico: '',
-    contatoTec: ''
+    contatoTec: '',
+    latitude: 0,
+    longitude: 0
   };
 
   estruturasDoBanco = signal<any[]>([]);
@@ -502,6 +507,16 @@ export class OSListComponent implements OnInit {
     this.materialSelecionadoId = '';
   }
 
+  onLocationSelected(location: any) {
+
+  this.osForm.latitude = location.lat;
+  this.osForm.longitude = location.lng;
+
+  console.log('Latitude:', location.lat);
+  console.log('Longitude:', location.lng);
+
+}
+
   removeEstrutura(index: number) {
     this.estruturasAdicionadas.update(prev => prev.filter((_, i) => i !== index));
   }
@@ -550,6 +565,8 @@ export class OSListComponent implements OnInit {
       city: this.osForm.city || 'Rio de Janeiro',
       state: this.osForm.state || 'RJ',
       zipCode: this.osForm.zipCode || '00000-000',
+      latitude: this.osForm.latitude,
+      longitude: this.osForm.longitude,
       items: this.prepararPayloadItens()
     };
 
@@ -596,7 +613,7 @@ export class OSListComponent implements OnInit {
     this.osAtual = null;
     this.osForm = { 
       nome: '', organizador: '', dataInicio: '', dataFim: '', street: '', city: '', state: '', zipCode: '', descricao: '',
-      solicitante: '', dataEvento: '', responsavel: '', local: '', contato: '', horario: '', entrega: '', respTecnico: '', contatoTec: ''
+      solicitante: '', dataEvento: '', responsavel: '', local: '', contato: '', horario: '', entrega: '', respTecnico: '', contatoTec: '', latitude: 0, longitude: 0
     };
     this.estruturasAdicionadas.set([]);
   }

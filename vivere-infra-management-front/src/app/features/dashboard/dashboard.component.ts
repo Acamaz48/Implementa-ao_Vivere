@@ -759,6 +759,13 @@ export class DashboardComponent implements OnInit {
     this.eventService.getEvents()
       .pipe(takeUntilDestroyed(this.destroyRef)) // Proteção ativada contra vazamentos
       .subscribe((eventos) => {
+        console.log('EVENTOS', eventos);
+        eventos.forEach(e => {
+            console.log('EVENTO:', e.name);
+            console.log('LAT:', e.latitude);
+            console.log('LNG:', e.longitude);
+            console.log('ADDRESS:', e.address);
+        });
         this.todosEventos = eventos;
 
         const ativos = eventos.filter(e => e.status === 'ACTIVE' || e.status === 'PENDING');
@@ -769,17 +776,40 @@ export class DashboardComponent implements OnInit {
           .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
           .slice(0, 7);
 
-        this.mapMarkers = ativos.filter(e => e.latitude && e.longitude).map(e => {
-          const dataStr = new Date(e.startDate).toLocaleDateString('pt-BR');
-          const statusTraduzido = e.status === 'PENDING' ? 'Pendente/Planejamento' : 'Em andamento';
+        this.mapMarkers = ativos
+  .filter(e =>
+    e.latitude != null ||
+    e.address?.latitude != null
+  )
+  .map(e => {
 
-          return {
-            lat: e.latitude,
-            lng: e.longitude,
-            title: e.name,
-            info: `Status: <b>${statusTraduzido}</b><br>Data: ${dataStr}`
-          };
-        });
+    const latitude =
+      e.latitude ??
+      e.address?.latitude;
+
+    const longitude =
+      e.longitude ??
+      e.address?.longitude;
+
+    const dataStr =
+      new Date(e.startDate)
+        .toLocaleDateString('pt-BR');
+
+    const statusTraduzido =
+      e.status === 'PENDING'
+        ? 'Pendente/Planejamento'
+        : 'Em andamento';
+
+    return {
+      lat: Number(latitude),
+      lng: Number(longitude),
+      title: e.name,
+      info: `
+        Status: <b>${statusTraduzido}</b><br>
+        Data: ${dataStr}
+      `
+    };
+  });
       });
 
     this.materialService.getMaterials()
